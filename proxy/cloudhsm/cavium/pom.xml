@@ -1,0 +1,110 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>pix-cloudhsm-cavium</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>CloudHSM Cavium JCE</name>
+
+    <parent>
+        <groupId>com.amazon.aws</groupId>
+        <artifactId>pix-cloudhsm</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>com.googlecode.maven-download-plugin</groupId>
+                <artifactId>download-maven-plugin</artifactId>
+                <version>1.5.1</version>
+                <executions>
+                    <execution>
+                        <id>cloudhsm-client-jce-latest-download</id>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <skipCache>true</skipCache>
+                            <url>https://s3.amazonaws.com/cloudhsmv2-software/CloudHsmClient/EL7/cloudhsm-client-jce-latest.el7.x86_64.rpm</url>
+                            <outputDirectory>${project.build.directory}/cloudhsm-client-jce</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>rpm-maven-plugin</artifactId>
+                <version>2.2.0</version>
+                <executions>
+                    <execution>
+                        <id>cloudhsm-client-jce-latest-unpack</id>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <rpmFile>${project.build.directory}/cloudhsm-client-jce/cloudhsm-client-jce-latest.el7.x86_64.rpm</rpmFile>
+                            <unpackDirectory>${project.build.directory}/cloudhsm-client-jce</unpackDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>export-cloudhsm-jce-version</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <fileset id="cloudhsm-fileset"  dir="${project.build.directory}/cloudhsm-client-jce/opt/cloudhsm/java/">
+                                    <include name="cloudhsm-*.jar" />
+                                    <exclude name="cloudhsm-test-*.jar" />
+                                </fileset>
+
+                                <pathconvert property="cloudhsm.version" refid="cloudhsm-fileset">
+                                    <regexpmapper from=".*-(.*)\.jar" to="\1"/>
+                                </pathconvert>
+
+                                <echo message="cloudhsm version: ${cloudhsm.version}"/>
+                            </target>
+                            <exportAntProperties>true</exportAntProperties>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-install-plugin</artifactId>
+                <version>2.5.2</version>
+                <executions>
+                    <execution>
+                        <id>install-cloudhsm-jce</id>
+                        <goals>
+                            <goal>install-file</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <groupId>com.cavium</groupId>
+                            <artifactId>cloudhsm</artifactId>
+                            <version>${cloudhsm.version}</version>
+                            <packaging>jar</packaging>
+                            <file>${project.build.directory}/cloudhsm-client-jce/opt/cloudhsm/java/cloudhsm-${cloudhsm.version}.jar</file>
+                            <generatePom>true</generatePom>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
