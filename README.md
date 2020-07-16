@@ -1,6 +1,6 @@
 # Architectures to exemplify digital signature and secure message transmission to the Brazilian Instant Payment System (PIX)
 
-### ***You can clone, change, execute it, but *it should not be used as a basis for building the final integration* of the Financial Institution with BACEN (SPI and DICT).***
+### ***You can clone, change, execute it, but *it should not be used as a basis for building the final integration* of the Financial Institution with PIX (SPI and DICT).***
 
 This project contains source code and supporting files to exemplify digital signature and secure message transmission to the Brazilian Instant Payment System (PIX).  The architectures represent a **proxy** for communication with Brazilian Central Bank (BACEN). The idea of the proxy is to use **AWS CloudHSM** or **AWS KMS** as a direct and mandatory path for every transaction, with the following objectives:
 
