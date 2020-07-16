@@ -1,7 +1,7 @@
 # AWS CloudHSM architecture to exemplify digital signature and secure message transmission to the Brazilian Instant Payment System
 
 <p align="center">
-  <img src="/images/proxy3.png">
+  <img src="/images/proxy-cloudhsm.png">
 </p>
 
 This project contains source code and supporting files that includes the following folders:
@@ -18,7 +18,7 @@ The main code of application uses several AWS resources, including AWS CLoudHSM 
 The architecture presented here can be part of a more complete, [event-based solution](https://aws.amazon.com/en/event-driven-architecture/), which can cover the entire payment message transmission flow, from the banking core. For example, the complete solution of the Financial Institution (paying or receiving), could contain other complementary architectures such as **Authorization**, **Undo** (based on the [SAGA model](https://docs.aws.amazon.com/whitepapers/latest/microservices-on-aws/distributed-data-management.html)), **Effectiveness**, **Communication with on-premises** environment ([hybrid environment](https://aws.amazon.com/en/hybrid/)), etc., using other services such as [Amazon EventBridge](https://aws.amazon.com/en/eventbridge/), Amazon Simple Notification Service ([SNS](https://aws.amazon.com/en/sns/?whats-new-cards.sort-by=item.additionalFields.postDateTime&whats-new-cards.sort-order=desc)), Amazon Simple Queue Service ([SQS](https://aws.amazon.com/en/sqs/)), [AWS Step Functions](https://aws.amazon.com/en/step-functions/), [Amazon ElastiCache](https://aws.amazon.com/en/elasticache/), [Amazon DynamoDB](https://aws.amazon.com/en/dynamodb/).
 
 <p align="center">
-  <img src="/images/arch-final1.png" width="600" height="600">
+  <img src="/images/proxy-cloudhsm-arch.png" width="600" height="600">
 </p>
 
 
