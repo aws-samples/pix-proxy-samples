@@ -1,0 +1,10 @@
+[
+  {
+    "name" : "com.sun.org.apache.xml.internal.security.transforms.implementations.TransformC14NExclusive",
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  },
+  {
+    "name" : "com.sun.org.apache.xml.internal.security.transforms.implementations.TransformEnvelopedSignature",
+    "methods":[{"name":"<init>","parameterTypes":[] }]
+  }
+]

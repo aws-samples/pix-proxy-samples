@@ -14,8 +14,8 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
-        <quarkus.version>1.5.1.Final</quarkus.version>
-        <camel-quarkus.version>1.0.0-CR2</camel-quarkus.version>
+        <quarkus.version>1.7.0.Final</quarkus.version>
+        <camel-quarkus.version>1.0.0</camel-quarkus.version>
 
         <aws.bom.version>2.13.0</aws.bom.version>
         <lombok.version>1.18.12</lombok.version>
@@ -27,6 +27,7 @@
     <modules>
         <module>core</module>
         <module>cloudhsm</module>
+        <module>kms</module>
         <module>test</module>
     </modules>
 

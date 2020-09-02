@@ -5,14 +5,16 @@ import lombok.SneakyThrows;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -56,6 +58,16 @@ public abstract class KeyStoreUtil {
     }
 
     @SneakyThrows
+    public static KeyStore generateKeyStore(String alias, String privateKey, String certificate) {
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+
+        Collection<X509Certificate> certificates = getCertificates(certificate);
+        keyStore.setKeyEntry(alias, getPrivateKey(privateKey), null, certificates.toArray(new Certificate[certificates.size()]));
+        return keyStore;
+    }
+
+    @SneakyThrows
     public static Collection<X509Certificate> getCertificates(String certificate) {
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         ByteArrayInputStream inputStream = new ByteArrayInputStream(certificate.getBytes(StandardCharsets.UTF_8));
@@ -85,6 +97,24 @@ public abstract class KeyStoreUtil {
     public static X509Certificate getCertificateFromResource(String certificate) {
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
         return (X509Certificate) certificateFactory.generateCertificate(Thread.currentThread().getContextClassLoader().getResourceAsStream(certificate));
+    }
+
+    @SneakyThrows
+    public static PrivateKey getPrivateKey(String key) {
+        key = key.replace("-----BEGIN PRIVATE KEY-----", "")
+                .replaceAll(System.lineSeparator(), "")
+                .replace("-----END PRIVATE KEY-----", "");
+
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(Base64.getDecoder().decode(key));
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePrivate(keySpec);
+    }
+
+    @SneakyThrows
+    public static PublicKey getPublicKey(String key) {
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(key.getBytes(StandardCharsets.UTF_8));
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        return keyFactory.generatePublic(keySpec);
     }
 
 }
