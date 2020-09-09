@@ -13,7 +13,7 @@ This project contains source code and supporting files to exemplify digital sign
 AWS CloudHSM | AWS KMS  |
 :-:|:-:|
 <img src="/images/hsm.jpg" width="100" height="100">|<img src="/images/kms.jpg" width="100" height="100">|
-[Click here!](https://github.com/llins/pix-proxy-samples-private/blob/master/README-CloudHSM.md)|[Click here!](https://github.com/llins/pix-proxy-samples-private/blob/master/README-KMS.md)|
+[Click here!](README-CloudHSM.md)|[Click here!](README-KMS.md)|
 
 ## Security
 
