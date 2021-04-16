@@ -4,7 +4,7 @@
   <img src="/images/proxy-kms-arch.png">
 </p>
 
-This project contains source code and supporting files that includes the following folders:
+This project contains source code and supporting files that includes the following  folders:
 
 - `proxy/kms` - Proxy that uses AWS KMS.
 - `proxy/core` - Sign XML messages.
