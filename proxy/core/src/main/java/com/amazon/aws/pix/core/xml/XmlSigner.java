@@ -8,6 +8,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
 import javax.xml.crypto.KeySelector;
 import javax.xml.crypto.dsig.*;
 import javax.xml.crypto.dsig.dom.DOMSignContext;
@@ -52,7 +53,8 @@ public class XmlSigner {
     protected final String xmlSignatureMethod;
     protected final String canonicalizationMethod;
 
-    public XmlSigner(@NonNull PrivateKey privateKey, @NonNull X509Certificate certificate, @NonNull KeyStore trustStore) {
+    public XmlSigner(@NonNull PrivateKey privateKey, @NonNull X509Certificate certificate,
+            @NonNull KeyStore trustStore) {
         this.privateKey = privateKey;
         this.certificate = certificate;
 
@@ -122,7 +124,9 @@ public class XmlSigner {
                 if (!validStatus) {
                     Iterator<Reference> referenceIterator = signature.getSignedInfo().getReferences().iterator();
                     for (int i = 0; referenceIterator.hasNext(); i++) {
-                        error.append("ref[").append(i).append("] validity status: ").append(referenceIterator.next().validate(validateContext)).append(System.lineSeparator());
+                        error.append("ref[").append(i).append("] validity status: ")
+                                .append(referenceIterator.next().validate(validateContext))
+                                .append(System.lineSeparator());
                     }
                     log.error(error.toString());
                 }
@@ -142,48 +146,50 @@ public class XmlSigner {
     }
 
     protected Document getDocument(InputStream xml) throws SAXException, IOException, ParserConfigurationException {
-        DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
-        documentBuilderFactory.setNamespaceAware(true);
-        return documentBuilderFactory.newDocumentBuilder().parse(xml);
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        dbf.setXIncludeAware(false); // Default false for java 8. Disable XML Inclusions leading to SSRF -
+                                     // https://portswigger.net/web-security/xxe/lab-xinclude-attack
+        dbf.setExpandEntityReferences(false); // Default true for java 8. Disable expand entity reference nodes leading
+                                              // to Billion laughs attack [CWE-776].
+        dbf.setNamespaceAware(true);
+        return dbf.newDocumentBuilder().parse(xml);
     }
 
     protected KeyInfo getKeyInfo(XMLSignatureFactory signatureFactory) {
         KeyInfoFactory keyInfoFactory = signatureFactory.getKeyInfoFactory();
-        X509IssuerSerial x509IssuerSerial = keyInfoFactory.newX509IssuerSerial(certificate.getSubjectX500Principal().getName(), certificate.getSerialNumber());
+        X509IssuerSerial x509IssuerSerial = keyInfoFactory
+                .newX509IssuerSerial(certificate.getSubjectX500Principal().getName(), certificate.getSerialNumber());
         X509Data x509Data = keyInfoFactory.newX509Data(Collections.singletonList(x509IssuerSerial));
         return keyInfoFactory.newKeyInfo(Collections.singletonList(x509Data), UUID.randomUUID().toString());
     }
 
-    protected List<Reference> getReferences(XMLSignatureFactory signatureFactory, KeyInfo keyInfo) throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
+    protected List<Reference> getReferences(XMLSignatureFactory signatureFactory, KeyInfo keyInfo)
+            throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         return List.of(
                 signatureFactory.newReference(
                         "#" + keyInfo.getId(),
                         signatureFactory.newDigestMethod(xmlDigestMethod, null),
                         List.of(
-                                signatureFactory.newTransform(canonicalizationMethod, (TransformParameterSpec) null)
-                        ),
+                                signatureFactory.newTransform(canonicalizationMethod, (TransformParameterSpec) null)),
                         null,
-                        null
-                ),
+                        null),
                 signatureFactory.newReference(
                         "", // in this case we are signing the whole document, so the URI of ""
                         signatureFactory.newDigestMethod(xmlDigestMethod, null),
                         List.of(
                                 signatureFactory.newTransform(Transform.ENVELOPED, (TransformParameterSpec) null),
-                                signatureFactory.newTransform(canonicalizationMethod, (TransformParameterSpec) null)
-                        ),
+                                signatureFactory.newTransform(canonicalizationMethod, (TransformParameterSpec) null)),
                         null,
-                        null
-                )
-        );
+                        null));
     }
 
-    protected SignedInfo getSignedInfo(XMLSignatureFactory signatureFactory, List<Reference> references) throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
+    protected SignedInfo getSignedInfo(XMLSignatureFactory signatureFactory, List<Reference> references)
+            throws InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         return signatureFactory.newSignedInfo(
                 signatureFactory.newCanonicalizationMethod(canonicalizationMethod, (C14NMethodParameterSpec) null),
                 signatureFactory.newSignatureMethod(xmlSignatureMethod, null),
-                references
-        );
+                references);
     }
 
     protected Element getSignatureEnvelop(Document document) {
@@ -193,6 +199,8 @@ public class XmlSigner {
     protected ByteArrayOutputStream transform(Document document) throws TransformerException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         TransformerFactory tf = TransformerFactory.newInstance();
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+        tf.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
         Transformer trans = tf.newTransformer();
         trans.transform(new DOMSource(document), new StreamResult(outputStream));
         return outputStream;
