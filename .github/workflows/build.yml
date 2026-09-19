@@ -1,0 +1,110 @@
+name: build
+
+# Upstream (aws-samples/pix-proxy-samples) has no CI at all - a third-party automation
+# maturity analysis filed as upstream issue #13 flags "Run tests" as not implemented.
+# This fork adds one so that anybody receiving this code can see, from the commit status
+# alone, that it compiles and that the regression tests pass.
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: core - build + test (the signature logic)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK 11 on purpose: proxy/pom.xml sets java.version=11, and proxy/core/pom.xml
+      # relies on --add-exports against two java.xml.crypto internal packages. Changing
+      # the JDK major version here would not be testing what this project actually ships.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      - name: Build and test proxy/core
+        run: mvn -B -f proxy/pom.xml -pl core test
+
+      - name: Upload surefire reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-core
+          path: proxy/core/target/surefire-reports/
+          if-no-files-found: warn
+
+  kms-and-simulator:
+    name: kms + simulator - compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+      - name: Compile proxy/kms and proxy/test
+        run: mvn -B -f proxy/pom.xml -pl core,kms,test package -DskipTests
+
+  cloudhsm:
+    name: cloudhsm - compile (needs the CloudHSM JCE rpm, best effort)
+    runs-on: ubuntu-latest
+    # Non-blocking on purpose: proxy/cloudhsm/cavium downloads
+    # cloudhsm-client-jce-latest.el7.x86_64.rpm from a public S3 bucket at build time and
+    # unpacks it with rpm-maven-plugin. That makes this job dependent on an external
+    # download and on `rpm` being available, neither of which we control. A red mark here
+    # does not mean the source is broken - check the `core` job for that.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+      - name: Install rpm tooling (required by rpm-maven-plugin)
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: Compile proxy/cloudhsm
+        run: mvn -B -f proxy/pom.xml -pl core,cloudhsm/cavium,cloudhsm/proxy package -DskipTests
+
+  shell:
+    name: wrapper_script.sh - shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax check
+        run: bash -n proxy/cloudhsm/proxy/src/main/docker/wrapper_script.sh
+      - name: ShellCheck
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck -S warning proxy/cloudhsm/proxy/src/main/docker/wrapper_script.sh
+
+  audit-schema:
+    name: audit schema - AuditLog keys vs documented Glue columns
+    runs-on: ubuntu-latest
+    # Turns upstream issue #16 into a build failure instead of silent data loss:
+    # any field AuditLog emits must be declared as a column in both READMEs.
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare emitted keys against documented columns
+        run: |
+          set -euo pipefail
+          keys=$(grep -o 'put("[a-z_]*"' proxy/core/src/main/java/com/amazon/aws/pix/core/audit/AuditLog.java \
+                 | sed 's/put("//; s/"//' | sort -u)
+          echo "AuditLog emits:"; echo "$keys" | sed 's/^/  /'
+          rc=0
+          for readme in README-CloudHSM.md README-KMS.md; do
+            for k in $keys; do
+              if ! grep -q "name: '$k'" "$readme"; then
+                echo "::error file=$readme::AuditLog emits '$k' but $readme declares no such Glue column - Firehose would drop it silently"
+                rc=1
+              fi
+            done
+          done
+          [ "$rc" -eq 0 ] && echo "OK: every emitted field is declared in both READMEs"
+          exit "$rc"

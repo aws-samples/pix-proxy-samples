@@ -35,6 +35,9 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateExpiredException;
+import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.Iterator;
@@ -121,21 +124,70 @@ public class XmlSigner {
                 error.append("Signature failed core validation!").append(System.lineSeparator());
                 boolean validStatus = signature.getSignatureValue().validate(validateContext);
                 error.append("signature validation status: ").append(validStatus).append(System.lineSeparator());
-                if (!validStatus) {
-                    Iterator<Reference> referenceIterator = signature.getSignedInfo().getReferences().iterator();
-                    for (int i = 0; referenceIterator.hasNext(); i++) {
-                        error.append("ref[").append(i).append("] validity status: ")
-                                .append(referenceIterator.next().validate(validateContext))
-                                .append(System.lineSeparator());
-                    }
-                    log.error(error.toString());
+                // Always report per-Reference status. The most common real failure is a valid
+                // SignatureValue with a mismatching Reference digest (some part of the document
+                // changed); the original sample only logged reference detail when the
+                // SignatureValue itself failed, i.e. exactly not in that case. See upstream issue #19.
+                Iterator<Reference> referenceIterator = signature.getSignedInfo().getReferences().iterator();
+                for (int i = 0; referenceIterator.hasNext(); i++) {
+                    error.append("ref[").append(i).append("] validity status: ")
+                            .append(referenceIterator.next().validate(validateContext))
+                            .append(System.lineSeparator());
                 }
+                log.error(error.toString());
             }
 
             return valid;
         } catch (Exception e) {
+            // A trusted certificate outside its validity period is a CERTIFICATE ROTATION
+            // problem, not a signature mismatch. Collapsing it into `false` (as the original
+            // sample did) turns every transaction into HTTP 500 flagged as an invalid
+            // signature, which reads like an attack or a counterparty outage.
+            // The exception is raised lazily from KeySelectorResult#getKey() during
+            // validate(), so by the time it reaches here it may be wrapped an arbitrary
+            // number of levels deep - hence the cause-chain walk rather than a typed catch.
+            // See upstream issue #19.
+            CertificateException validityProblem = findCertificateValidityProblem(e);
+            if (validityProblem != null) {
+                log.error("trusted certificate is outside its validity period - this is a certificate "
+                        + "rotation problem, NOT a signature mismatch", validityProblem);
+                throw new CertificateValidityException(
+                        "trusted certificate outside its validity period", validityProblem);
+            }
             log.error("failed to verify signature", e);
             return false;
+        }
+    }
+
+    /**
+     * Walks the cause chain looking for a certificate validity failure
+     * ({@link CertificateExpiredException} / {@link CertificateNotYetValidException}).
+     *
+     * @return the validity exception if present, otherwise {@code null}
+     */
+    protected static CertificateException findCertificateValidityProblem(Throwable throwable) {
+        Throwable cause = throwable;
+        // Bounded walk: guards against self-referencing and cyclic cause chains.
+        for (int depth = 0; cause != null && depth < 20; depth++) {
+            if (cause instanceof CertificateExpiredException || cause instanceof CertificateNotYetValidException) {
+                return (CertificateException) cause;
+            }
+            if (cause.getCause() == cause) {
+                break;
+            }
+            cause = cause.getCause();
+        }
+        return null;
+    }
+
+    /**
+     * Raised when a certificate in the trust store is outside its validity period.
+     * Deliberately distinct from a {@code false} verification result so that operators can
+     * tell "rotate the certificate" apart from "the signature did not match".
+     */
+    public static class CertificateValidityException extends RuntimeException {
+        public CertificateValidityException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 
@@ -158,8 +210,12 @@ public class XmlSigner {
 
     protected KeyInfo getKeyInfo(XMLSignatureFactory signatureFactory) {
         KeyInfoFactory keyInfoFactory = signatureFactory.getKeyInfoFactory();
+        // X509IssuerSerial must carry the ISSUER DN of the certificate, not its Subject DN.
+        // With a self-signed certificate the two are identical, which is why this was not
+        // visible in the original sample's tests; with a CA-issued certificate the emitted
+        // KeyInfo would identify the wrong issuer. See upstream issue #15.
         X509IssuerSerial x509IssuerSerial = keyInfoFactory
-                .newX509IssuerSerial(certificate.getSubjectX500Principal().getName(), certificate.getSerialNumber());
+                .newX509IssuerSerial(certificate.getIssuerX500Principal().getName(), certificate.getSerialNumber());
         X509Data x509Data = keyInfoFactory.newX509Data(Collections.singletonList(x509IssuerSerial));
         return keyInfoFactory.newKeyInfo(Collections.singletonList(x509Data), UUID.randomUUID().toString());
     }

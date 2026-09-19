@@ -106,6 +106,7 @@ columns: [
     {name: 'request_date', type: glue.Schema.STRING},
     {name: 'request_method', type: glue.Schema.STRING},
     {name: 'request_path', type: glue.Schema.STRING},
+    {name: 'request_query', type: glue.Schema.STRING},
     {name: 'request_header', type: glue.Schema.STRING},
     {name: 'request_body', type: glue.Schema.STRING},
     {name: 'response_status_code', type: glue.Schema.INTEGER},

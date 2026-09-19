@@ -79,7 +79,7 @@ Command: loginHSM -u CU -s <HSM_USER> -p <HSM_PASSWORD>
 
 Generate the key pair:
 ```
-Command: genRSAKeyPair -m 2048 -e 65541 -l <LABEL> -nex 
+Command: genRSAKeyPair -m 2048 -e 65537 -l <LABEL> -nex 
 
 Cfm3GenerateKeyPair:    public key handle: <X>    private key handle: <Y>
 ```
@@ -199,7 +199,7 @@ Command: loginHSM -u CU -s <HSM_USER> -p <HSM_PASSWORD>
 
 Generate a key pair:
 ```
-Command: genRSAKeyPair -m 2048 -e 65541 -l <LABEL>
+Command: genRSAKeyPair -m 2048 -e 65537 -l <LABEL>
 
 Cfm3GenerateKeyPair:    public key handle: <X>    private key handle: <Y>
 ```
@@ -329,6 +329,7 @@ columns: [
     {name: 'request_date', type: glue.Schema.STRING},
     {name: 'request_method', type: glue.Schema.STRING},
     {name: 'request_path', type: glue.Schema.STRING},
+    {name: 'request_query', type: glue.Schema.STRING},
     {name: 'request_header', type: glue.Schema.STRING},
     {name: 'request_body', type: glue.Schema.STRING},
     {name: 'response_status_code', type: glue.Schema.INTEGER},
